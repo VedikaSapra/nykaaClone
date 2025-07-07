@@ -1,0 +1,460 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Number verification with OTP</title>
+<!-- Remove old Firebase scripts -->
+<!-- Load Firebase SDK v9 compat only -->
+ 
+<script src="https://www.gstatic.com/firebasejs/9.12.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.12.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.3.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.12.1/firebase-firestore-compat.js"></script>
+<style>
+	.container {
+		width: 302px;
+		height: 175px;
+		position: absolute;
+		left: 0px;
+		right: 0px;
+		top: 20%;
+		/* bottom: 0px; */
+		margin: auto;
+        /* border: 1px solid gray; */
+	}
+	#number, #verificationcode {
+		width: calc(100% - 24px);
+		padding: 10px;
+		font-size: 20px;
+		margin-bottom: 5px;
+		outline: none;
+        border: none;
+        border-bottom: 1px solid grey;
+	}
+    a{
+        text-decoration: none;
+        color: rgb(63, 180, 227);
+        font-size: 16px;
+        margin: 5px;
+        float: right;
+        
+    }
+	#recaptcha-container {
+		margin-bottom: 5px;
+	}
+	#send, #verify {
+		width: 100%;
+		height: 40px;
+		color: white;
+        border-radius: 10px;
+        padding: 8px ;
+        outline: none;
+        border: none;
+        background-color: #fc2779;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-bottom: 5px;
+	}
+	.p-conf, .n-conf {
+		width: calc(100% - 22px);
+		border: 2px solid green;
+		border-radius: 4px;
+		padding: 8px 10px;
+		margin: 4px 0px;
+		background-color: rgba(0, 249, 12, 0.5);
+		display: none;
+	}
+	.n-conf {
+		border-color: red;
+		background-color: rgba(255, 0, 4, 0.5);
+	}
+    #form{
+            text-align: center;
+            transition: 1ms ease-in-out;
+    }
+    .login_form{
+        text-align: center;
+            transition: 1ms ease-in-out;
+    }
+    #form>h1{
+        font-weight: bold;
+        font-family: 'Times New Roman', Times, serif;
+      
+    }
+    .login_form>h1{
+        font-weight: bold;
+        font-family: 'Times New Roman', Times, serif;
+    }
+    .user_data{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        align-items: center;
+        justify-content: center;
+    }
+    .login_user_data{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        align-items: center;
+        justify-content: center;
+    }
+  
+    .login_user_data>input{
+        width: 70%;
+        margin: 10px;
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: none;
+        border-bottom: 1px solid gray;
+        outline: none;
+    }
+    .user_data>input{
+        width: 70%;
+        margin: 10px;
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: none;
+        border-bottom: 1px solid gray;
+        outline: none;
+    }
+    #forget>input{
+        width: 70%;
+        margin: 10px;
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: none;
+        border-bottom: 1px solid gray;
+        outline: none;
+    }
+    #send_otp,#signup,#login{
+        width: 80%;
+        color: white;
+        border-radius: 10px;
+        padding: 8px ;
+        outline: none;
+        border: none;
+        background-color: #fc2779;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    #send_otp:hover{
+        background-color: #c50e54;
+    }
+    #signup,#login:hover{
+        background-color: #c50e54;
+    }
+    label{
+        font-weight: 500;
+        font-size: medium;
+        color: gray;
+        margin-left: 5px;
+    }
+    
+</style>
+</head>
+
+<body>
+	<div class="container">
+		<div id="sender" >
+            <label for="">Enter Your Phone Number</label>
+			<input type="text" id="number" placeholder="+91" maxlength="13" pattern="^\\+91[0-9]{10}$" required>
+			<div id="recaptcha-container"></div>
+			<input type="button" id="send" value="Send" onClick="phoneAuth()">
+            <span id="number-error" style="color:red; font-size:12px; display:none;">Please enter a valid phone number (+91XXXXXXXXXX)</span>
+            <a href=""  id="showLogin">Already have an Account ?</a>
+		</div>
+		<div id="verifier" style="display: none">
+			<input type="text" id="verificationcode" placeholder="OTP Code">
+			<input type="button" id="verify" value="Verify" onClick="codeverify()">
+			<div class="p-conf">Number Verified</div>
+			<div class="n-conf">OTP ERROR</div>
+		</div>
+        <div id="form" style="display: none;">
+            <h1>Enter Details</h1>
+            <div class="user_data">
+               
+                <input type="email" id="email" placeholder="Enter Your Email">
+               
+                <input type="text" id="username" placeholder="Enter Your Name">
+               
+                <input type="password" id="password" placeholder="Enter Your Password" minlength="6" required>
+                <input type="button" value="signup" id="signup">
+            </div>
+        </div>
+
+        <div class="login_form" id="login_f" style="display: none;" >
+            <h1>Enter Details</h1>
+            <div class="login_user_data">
+               
+                <input type="email" id="login_email" placeholder="Enter Your Email" required>
+                <input type="password" id="login_password" placeholder="Enter Your Password" minlength="6" required>
+                <input type="button" value="Login" id="login">
+               <a href="../view/forget.html" id="forget_pass">Forget Password</a>
+            </div>
+        </div>
+        <!-- <div id="forget" style="display: none;">
+            <input type="email" placeholder="Enter Your Registered Email">
+            <input type="button" value="Send" id="send_otp">
+        </div> -->
+	</div>
+<!--	add firebase SDK-->
+    </body>
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD-c-JyZUwwVkc3-4W_NJVyG4FV2l5vhgg",
+  authDomain: "nykaaclone-595b0.firebaseapp.com",
+  projectId: "nykaaclone-595b0",
+  storageBucket: "nykaaclone-595b0.firebasestorage.app",
+  messagingSenderId: "348784014507",
+  appId: "1:348784014507:web:8143ab83c9736545ecf3ee",
+  measurementId: "G-E4TTR8H39B"
+};
+	firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+// Get a reference to the Auth service
+const auth = firebase.auth();
+// Get a reference to the Firestore service
+
+
+// Listen for authentication state changes
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    // User is signed in.
+    const uid = user.uid;
+    const phoneNumber = user.phoneNumber; // Get their phone number
+
+    // Now, store or update their profile in Firestore
+    db.collection("users").doc(uid).set({
+      phoneNumber: phoneNumber,
+      lastSignInTime: firebase.firestore.FieldValue.serverTimestamp(),
+      // You can add more profile information here as your app grows
+      // like: name: "John Doe", email: "john@example.com"
+    }, { merge: true }) // Use merge: true to update existing fields without overwriting the whole document
+    .then(() => {
+      console.log("User profile saved/updated in Firestore for UID:", uid);
+      // You can now redirect the user or update the UI
+    })
+    .catch((error) => {
+      console.error("Error saving user profile to Firestore:", error);
+    });
+
+  } else {
+    // User is signed out.
+    console.log("User is signed out.");
+    // Redirect to sign-in page or update UI
+  }
+});
+
+render();
+
+function render(){
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'normal',
+        'callback': (response) => {
+            // Enable send button after reCAPTCHA is solved
+            document.getElementById('send').disabled = false;
+        }
+    });
+    // Disable send button until reCAPTCHA is solved
+    document.getElementById('send').disabled = true;
+    recaptchaVerifier.render();
+} // Remove extra closing brace
+
+let showlogin = document.getElementById("showLogin")
+showlogin.addEventListener("click",(e)=>{
+    showLogin(e)
+})
+function showLogin(e){
+    e.preventDefault();
+    
+    document.getElementById('login_f').style.display = 'block';
+    document.getElementById('form').style.display = 'none';
+    document.getElementById('verifier').style.display = 'none';
+    document.getElementById('sender').style.display = 'none';
+}
+let forget_pass = document.getElementById("forget_pass")
+forget_pass.addEventListener("click",(e)=>{
+    forget(e)
+})
+
+// function forget(e){
+//     e.preventDefault();
+//     document.getElementById('forget').style.display = 'block';
+//     document.getElementById('login_f').style.display = 'none';
+//     document.getElementById('form').style.display = 'none';
+//     document.getElementById('verifier').style.display = 'none';
+//     document.getElementById('sender').style.display = 'none';
+// }
+
+
+
+	// function for send message
+function phoneAuth(){
+    // Remove testing mode
+    // firebase.auth().settings.appVerificationDisabledForTesting = true;
+    
+    var number = document.getElementById('number').value;
+    // Ensure number is in E.164 format
+    if (!number.startsWith('+')) {
+        number = '+' + number;
+    }
+
+    firebase.auth().signInWithPhoneNumber(number, window.recaptchaVerifier)
+        .then(function(confirmationResult){
+            window.confirmationResult = confirmationResult;
+            coderesult = confirmationResult;
+            document.getElementById('verifier').style.display = 'block';
+            document.getElementById('sender').style.display = 'none';
+            document.getElementById('form').style.display = 'none';
+        })
+        .catch(function(error){
+            // Reset reCAPTCHA on error
+            window.recaptchaVerifier.render().then(function(widgetId) {
+                grecaptcha.reset(widgetId);
+            });
+            alert('Error: ' + error.message);
+        });
+}
+	// function for code verify
+async function codeverify (){
+	var code = document.getElementById('verificationcode').value;
+    var number = document.getElementById('number').value;
+	coderesult.confirm(code).then(function(result){
+        alert("OTP Verified")
+        localStorage.setItem("phone",number)
+        document.getElementById('form').style.display = 'block';
+        document.getElementById('verifier').style.display = 'none';
+        document.getElementById('sender').style.display = 'none';
+	}).catch(function(){
+		alert("Wrong OTP")
+	})
+}
+
+let signup = document.getElementById("signup")
+signup.addEventListener("click",(e)=>{
+    signUp(e)
+})
+
+async function signUp(e){
+    e.preventDefault();
+    // let token=""
+    
+    let email = document.getElementById("email").value;
+    let username = document.getElementById("username").value;
+    let password = document.getElementById("password").value;
+    let phone = localStorage.getItem("phone")
+    let userDetail = {
+        email:email,
+        username:username,
+        phone:phone,
+        password:password
+    }
+    try {
+        const url = `https://sore-rose-catfish-hose.cyclic.app/user/signup`; //"http://localhost:8000/user/signup"
+    const res = await fetch(url,{
+        method:'POST',
+        body:JSON.stringify(userDetail),
+        headers:{
+            'Content-type':'application/json'
+        }
+    })
+
+
+    alert("SignUp SuccessFully")
+    document.getElementById('login_f').style.display = 'block';
+    document.getElementById('form').style.display = 'none';
+    document.getElementById('verifier').style.display = 'none';
+    document.getElementById('sender').style.display = 'none';
+        
+    } catch (error) {
+        
+    }
+  
+    // console.log(userDetail)
+}
+
+let login = document.getElementById("login")
+login.addEventListener("click",(e)=>{
+    Login(e)
+})
+
+async function Login(e){
+    e.preventDefault();
+    let email=document.getElementById("login_email").value;
+    let password=document.getElementById("login_password").value;
+    const loginDetail = {
+        email:email,
+        password:password
+    }
+    try {
+        const url =   `https://sore-rose-catfish-hose.cyclic.app/user/login`;      //"http://localhost:8000/user/login"
+     const res = await fetch(url,{
+        method:'POST',
+        body:JSON.stringify(loginDetail),
+        headers:{
+            'Content-type':'application/json'
+        }
+    })
+
+    let data = await res.json();
+    console.log(data.token)
+    if(data.token){
+        localStorage.setItem("token",data.token)
+        alert("Login SuccessFully")
+        location.href="../index.html"
+    
+
+    }
+    else{
+        alert("Invalid Username or Password")
+    }
+    
+        
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+</script>
+
+
+<script>
+// Enhanced validation for phone number and password
+const sendBtn = document.getElementById('send');
+const numberInput = document.getElementById('number');
+const numberError = document.getElementById('number-error');
+sendBtn.addEventListener('click', function(e) {
+    const phonePattern = /^\+91[0-9]{10}$/;
+    if(!phonePattern.test(numberInput.value)) {
+        numberError.style.display = 'block';
+        e.preventDefault();
+        return false;
+    } else {
+        numberError.style.display = 'none';
+    }
+});
+// Password validation for signup and login
+const signupBtn = document.getElementById('signup');
+const passwordInput = document.getElementById('password');
+signupBtn && signupBtn.addEventListener('click', function(e) {
+    if(passwordInput.value.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        e.preventDefault();
+        return false;
+    }
+});
+const loginBtn = document.getElementById('login');
+const loginPasswordInput = document.getElementById('login_password');
+loginBtn && loginBtn.addEventListener('click', function(e) {
+    if(loginPasswordInput.value.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        e.preventDefault();
+        return false;
+    }
+});
+</script>
+</html>
